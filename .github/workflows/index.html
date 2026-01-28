@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Penalty Showdown</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;900&display=swap');
+
+        :root {
+            --pitch-green: #2ecc71;
+            --pitch-dark: #27ae60;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #stage {
+            position: relative;
+            width: 1200px;
+            height: 600px;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 100px rgba(0,0,0,0.5);
+            display: none;
+            cursor: crosshair;
+        }
+
+        .pitch {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 180px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--pitch-green),
+                var(--pitch-green) 100px,
+                var(--pitch-dark) 100px,
+                var(--pitch-dark) 200px
+            );
+            border-top: 5px solid rgba(255,255,255,0.3);
+        }
+
+        /* The white goal frame */
+        .goal {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 700px;
+            height: 300px;
+            border: 14px solid white;
+            border-bottom: none;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1;
+            box-sizing: border-box;
+        }
+
+        #ball {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            z-index: 50;
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            filter: drop-shadow(0 10px 8px rgba(0,0,0,0.3));
+        }
+
+        #keeper {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 160px;
+            z-index: 40;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .team-btn {
+            padding: 20px 40px;
+            margin: 10px;
+            border-radius: 15px;
+            font-family: 'Bungee', cursive;
+            font-size: 1.5rem;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .team-btn:hover { transform: scale(1.1); }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            font-family: 'Bungee', cursive;
+            z-index: 100;
+        }
+
+        .score-box {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 30px;
+            border-radius: 10px;
+            border-bottom: 4px solid white;
+            min-width: 150px;
+        }
+
+        #announcer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Bungee', cursive;
+            font-size: 8rem;
+            color: #f1c40f;
+            text-shadow: 10px 10px 0px #000;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="selection-screen" class="overlay">
+        <h1 class="text-6xl font-black mb-12 italic tracking-tighter" style="font-family: 'Bungee';">CHOOSE YOUR SQUAD</h1>
+        <div class="flex flex-wrap justify-center">
+            <div onclick="startGame('Tokyo Tigers', '#f39c12')" class="team-btn bg-orange-500 hover:bg-orange-400">TOKYO TIGERS 🐯</div>
+            <div onclick="startGame('London Lions', '#3498db')" class="team-btn bg-blue-500 hover:bg-blue-400">LONDON LIONS 🦁</div>
+            <div onclick="startGame('Paris Panthers', '#9b59b6')" class="team-btn bg-purple-500 hover:bg-purple-400">PARIS PANTHERS 🐾</div>
+            <div onclick="startGame('Madrid Bulls', '#e74c3c')" class="team-btn bg-red-500 hover:bg-red-400">MADRID BULLS 🐂</div>
+        </div>
+    </div>
+
+    <div id="stage">
+        <div id="score-board">
+            <div class="score-box">
+                <div class="text-xs text-blue-300" id="team-name-label">YOU</div>
+                <div class="text-4xl" id="p-score">0</div>
+            </div>
+            <div class="score-box">
+                <div class="text-xs text-red-300">COMPUTER</div>
+                <div class="text-4xl" id="c-score">0</div>
+            </div>
+        </div>
+
+        <div id="mode-indicator" class="absolute top-32 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-2 rounded-full font-bold uppercase tracking-widest shadow-lg z-50">
+            Your Shot
+        </div>
+
+        <div class="pitch"></div>
+        <div class="goal" id="goal-area"></div>
+
+        <div id="keeper">
+            <svg viewBox="0 0 100 160" width="100" height="160">
+                <rect x="35" y="120" width="10" height="40" fill="#222" />
+                <rect x="55" y="120" width="10" height="40" fill="#222" />
+                <rect x="30" y="50" width="40" height="80" id="keeper-body" rx="10" fill="#e67e22" />
+                <circle cx="50" cy="30" r="20" fill="#ffdbac" stroke="#222" stroke-width="2" />
+                <rect x="10" y="60" width="25" height="10" rx="5" id="arm-l" fill="#e67e22" />
+                <rect x="65" y="60" width="25" height="10" rx="5" id="arm-r" fill="#e67e22" />
+            </svg>
+        </div>
+
+        <div id="ball">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="ballShade" cx="40%" cy="40%" r="50%">
+                        <stop offset="0%" stop-color="#ffffff" />
+                        <stop offset="100%" stop-color="#cccccc" />
+                    </radialGradient>
+                </defs>
+                <circle cx="50" cy="50" r="48" fill="url(#ballShade)" stroke="#222" stroke-width="1.5" />
+                <polygon points="50,35 62,45 58,60 42,60 38,45" fill="#111" />
+                <polygon points="50,5 65,15 60,30 40,30 35,15" fill="#111" />
+                <polygon points="90,35 98,55 85,70 70,60 75,40" fill="#111" />
+                <polygon points="10,35 2,55 15,70 30,60 25,40" fill="#111" />
+                <polygon points="50,95 65,85 60,70 40,70 35,85" fill="#111" />
+            </svg>
+        </div>
+
+        <div id="announcer">GOAL!</div>
+    </div>
+
+    <script>
+        let pScore = 0;
+        let cScore = 0;
+        let isPlayerStriker = true;
+        let busy = false;
+
+        const stage = document.getElementById('stage');
+        const ball = document.getElementById('ball');
+        const keeper = document.getElementById('keeper');
+        const announcer = document.getElementById('announcer');
+        const modeLabel = document.getElementById('mode-indicator');
+        const goalArea = document.getElementById('goal-area');
+
+        function startGame(teamName, color) {
+            document.getElementById('selection-screen').style.display = 'none';
+            stage.style.display = 'block';
+            document.getElementById('team-name-label').innerText = teamName.toUpperCase();
+            document.getElementById('keeper-body').setAttribute('fill', color);
+            resetPositions();
+        }
+
+        stage.addEventListener('mousedown', (e) => {
+            if (busy) return;
+            busy = true;
+
+            const stageRect = stage.getBoundingClientRect();
+            const mouseX = e.clientX - stageRect.left;
+            const mouseY = e.clientY - stageRect.top;
+
+            // Get Goal Boundaries relative to the stage
+            const goalRect = goalArea.getBoundingClientRect();
+            const gLeft = goalRect.left - stageRect.left;
+            const gRight = goalRect.right - stageRect.left;
+            const gTop = goalRect.top - stageRect.top;
+            const gBottom = goalRect.bottom - stageRect.top;
+
+            let targetX, targetY, diveX, diveY;
+
+            if (isPlayerStriker) {
+                targetX = mouseX;
+                targetY = mouseY;
+                // AI dives toward a point in the goal area
+                diveX = gLeft + Math.random() * (gRight - gLeft);
+                diveY = gTop + Math.random() * (gBottom - gTop);
+            } else {
+                // AI shoots towards a point in the goal area
+                targetX = gLeft + Math.random() * (gRight - gLeft);
+                targetY = gTop + Math.random() * (gBottom - gTop);
+                diveX = mouseX;
+                diveY = mouseY;
+            }
+
+            processTurn(targetX, targetY, diveX, diveY, gLeft, gRight, gTop, gBottom);
+        });
+
+        function processTurn(tx, ty, dx, dy, gl, gr, gt, gb) {
+            // Move Keeper
+            keeper.style.left = `${dx}px`;
+            keeper.style.bottom = `${600 - dy - 80}px`;
+
+            // Move Ball
+            setTimeout(() => {
+                ball.style.left = `${tx}px`;
+                ball.style.bottom = `${600 - ty}px`;
+                ball.style.width = '32px';
+                ball.style.height = '32px';
+                ball.style.transform = 'translateX(-50%) rotate(1080deg)';
+            }, 50);
+
+            // Scoring Evaluation
+            setTimeout(() => {
+                // The ball center must be within the goal outline boundaries
+                const inGoalX = tx >= gl && tx <= gr;
+                const inGoalY = ty >= gt && ty <= gb;
+                const inGoal = inGoalX && inGoalY;
+
+                // Keeper collision (circle-based)
+                const distance = Math.hypot(tx - dx, ty - dy);
+                const saved = distance < 110; 
+
+                let msg = "";
+                if (!inGoal) {
+                    msg = "MISS!";
+                    announcer.style.color = "#e74c3c";
+                } else if (saved) {
+                    msg = "SAVED!";
+                    announcer.style.color = "#3498db";
+                } else {
+                    msg = "GOAL!";
+                    announcer.style.color = "#f1c40f";
+                    if (isPlayerStriker) pScore++;
+                    else cScore++;
+                }
+
+                updateBoard(msg);
+            }, 700);
+        }
+
+        function updateBoard(msg) {
+            document.getElementById('p-score').innerText = pScore;
+            document.getElementById('c-score').innerText = cScore;
+            announcer.innerText = msg;
+            announcer.style.opacity = 1;
+
+            setTimeout(() => {
+                announcer.style.opacity = 0;
+                isPlayerStriker = !isPlayerStriker;
+                resetPositions();
+            }, 1800);
+        }
+
+        function resetPositions() {
+            busy = false;
+            modeLabel.innerText = isPlayerStriker ? "Your Shot" : "Defend!";
+            modeLabel.style.backgroundColor = isPlayerStriker ? "#3498db" : "#e74c3c";
+
+            ball.style.transition = "none";
+            keeper.style.transition = "none";
+            
+            ball.style.left = "50%";
+            ball.style.bottom = "40px";
+            ball.style.width = "60px";
+            ball.style.height = "60px";
+            ball.style.transform = "translateX(-50%) rotate(0deg)";
+
+            keeper.style.left = "50%";
+            keeper.style.bottom = "120px";
+
+            setTimeout(() => {
+                ball.style.transition = "all 0.6s cubic-bezier(0.25, 1, 0.5, 1)";
+                keeper.style.transition = "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+            }, 50);
+        }
+    </script>
+</body>
+</html>
