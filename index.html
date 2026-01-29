@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Penalty Cup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;700;900&display=swap');
+
+        :root {
+            --pitch-green: #2ecc71;
+            --pitch-dark: #27ae60;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #stage {
+            position: relative;
+            width: 1200px;
+            height: 600px;
+            background: linear-gradient(to bottom, #1e293b 0%, #334155 100%);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            display: none;
+            cursor: crosshair;
+        }
+
+        .pitch {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 180px;
+            background: repeating-linear-gradient(
+                90deg,
+                var(--pitch-green),
+                var(--pitch-green) 100px,
+                var(--pitch-dark) 100px,
+                var(--pitch-dark) 200px
+            );
+            border-top: 6px solid rgba(255,255,255,0.4);
+        }
+
+        .goal {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 700px;
+            height: 300px;
+            border: 16px solid white;
+            border-bottom: none;
+            background: rgba(255, 255, 255, 0.05);
+            z-index: 1;
+            box-sizing: border-box;
+            box-shadow: 0 -20px 50px rgba(255,255,255,0.1);
+        }
+
+        #ball {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            z-index: 50;
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            filter: drop-shadow(0 15px 10px rgba(0,0,0,0.4));
+        }
+
+        #keeper {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 160px;
+            z-index: 40;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, #1e293b, #0f172a);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            max-width: 900px;
+        }
+
+        .team-btn {
+            padding: 15px;
+            background: #334155;
+            border-radius: 12px;
+            font-family: 'Bungee', cursive;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .team-btn:hover {
+            background: #475569;
+            transform: translateY(-5px);
+            border-color: #38bdf8;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            font-family: 'Bungee', cursive;
+            z-index: 100;
+        }
+
+        .score-card {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 15px 25px;
+            border-radius: 16px;
+            border: 2px solid #334155;
+            min-width: 220px;
+            backdrop-filter: blur(8px);
+        }
+
+        #announcer {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Bungee', cursive;
+            font-size: 8rem;
+            color: #f1c40f;
+            text-shadow: 12px 12px 0px #000;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 2000;
+        }
+
+        .match-info {
+            position: absolute;
+            top: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Bungee', cursive;
+            background: #f1c40f;
+            color: black;
+            padding: 4px 20px;
+            border-radius: 0 0 10px 10px;
+            z-index: 90;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Selection Screen -->
+    <div id="selection-screen" class="overlay">
+        <h1 class="text-6xl font-black mb-4 italic" style="font-family: 'Bungee';">GLOBAL TOURNAMENT</h1>
+        <p class="text-xl mb-8 text-slate-400">16 TEAMS. 1 CUP. CHOOSE YOUR NATION.</p>
+        <div class="team-grid" id="team-list"></div>
+    </div>
+
+    <!-- 2. Bracket/Versus Screen -->
+    <div id="versus-screen" class="overlay" style="display: none;">
+        <h2 id="round-name" class="text-4xl mb-2 text-yellow-400" style="font-family: 'Bungee';">ROUND OF 16</h2>
+        <div class="flex items-center gap-12 my-12">
+            <div class="text-center">
+                <div id="vs-user-icon" class="text-8xl mb-4"></div>
+                <div id="vs-user-name" class="text-3xl font-bold" style="font-family: 'Bungee';"></div>
+            </div>
+            <div class="text-6xl font-black italic text-slate-500">VS</div>
+            <div class="text-center">
+                <div id="vs-opp-icon" class="text-8xl mb-4"></div>
+                <div id="vs-opp-name" class="text-3xl font-bold" style="font-family: 'Bungee';"></div>
+            </div>
+        </div>
+        <button onclick="startMatch()" class="team-btn bg-yellow-400 text-black px-12 py-4 text-2xl hover:bg-yellow-300">KICK OFF</button>
+    </div>
+
+    <!-- 3. Game Over Screen -->
+    <div id="game-over" class="overlay" style="display: none;">
+        <h1 id="result-title" class="text-7xl font-black mb-6" style="font-family: 'Bungee';">ELIMINATED!</h1>
+        <p id="result-desc" class="text-2xl mb-12 text-slate-300">You lost in the Quarter Finals.</p>
+        <button onclick="location.reload()" class="team-btn bg-white text-black px-12 py-4 text-xl">NEW TOURNAMENT</button>
+    </div>
+
+    <!-- 4. The Field -->
+    <div id="stage">
+        <div class="match-info" id="current-round-tag">ROUND OF 16</div>
+        
+        <div id="score-board">
+            <div class="score-card">
+                <div class="flex justify-between items-center mb-1">
+                    <span id="player-team-label" class="text-blue-400">YOU</span>
+                    <span id="p-shots-count" class="text-xs text-slate-500">0/5</span>
+                </div>
+                <div class="text-5xl" id="p-score">0</div>
+            </div>
+            <div class="score-card">
+                <div class="flex justify-between items-center mb-1">
+                    <span id="opp-team-label" class="text-red-400">OPPONENT</span>
+                    <span id="c-shots-count" class="text-xs text-slate-500">0/5</span>
+                </div>
+                <div class="text-5xl" id="c-score">0</div>
+            </div>
+        </div>
+
+        <div id="mode-indicator" class="absolute top-36 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-2 rounded-full font-bold uppercase tracking-widest shadow-xl z-50">
+            YOUR SHOT
+        </div>
+
+        <div class="pitch"></div>
+        <div class="goal" id="goal-area"></div>
+
+        <div id="keeper">
+            <svg viewBox="0 0 100 160" width="100" height="160">
+                <rect x="35" y="120" width="10" height="40" fill="#111" />
+                <rect x="55" y="120" width="10" height="40" fill="#111" />
+                <rect x="30" y="50" width="40" height="80" id="keeper-body" rx="10" fill="#e67e22" />
+                <circle cx="50" cy="30" r="20" fill="#ffdbac" stroke="#111" stroke-width="2" />
+                <rect x="10" y="60" width="25" height="10" rx="5" id="arm-l" fill="#e67e22" />
+                <rect x="65" y="60" width="25" height="10" rx="5" id="arm-r" fill="#e67e22" />
+            </svg>
+        </div>
+
+        <div id="ball">
+            <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="48" fill="white" stroke="#222" stroke-width="2" />
+                <path d="M50 2 L50 98 M2 50 L98 50" stroke="#ddd" stroke-width="1"/>
+                <polygon points="50,35 62,45 58,60 42,60 38,45" fill="#111" />
+                <polygon points="50,5 65,15 60,30 40,30 35,15" fill="#111" />
+                <polygon points="90,35 98,55 85,70 70,60 75,40" fill="#111" />
+                <polygon points="10,35 2,55 15,70 30,60 25,40" fill="#111" />
+                <polygon points="50,95 65,85 60,70 40,70 35,85" fill="#111" />
+            </svg>
+        </div>
+
+        <div id="announcer">GOAL!</div>
+    </div>
+
+    <script>
+        const TEAMS = [
+            { name: 'BRAZIL', icon: '🇧🇷', color: '#f1c40f' },
+            { name: 'FRANCE', icon: '🇫🇷', color: '#3498db' },
+            { name: 'ARGENTINA', icon: '🇦🇷', color: '#85c1e9' },
+            { name: 'TEXAS', icon: '🤠', color: '#c0392b' },
+            { name: 'SPAIN', icon: '🇪🇸', color: '#e74c3c' },
+            { name: 'ITALY', icon: '🇮🇹', color: '#2980b9' },
+            { name: 'ENGLAND', icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', color: '#ecf0f1' },
+            { name: 'PORTUGAL', icon: '🇵🇹', color: '#27ae60' },
+            { name: 'GUAM', icon: '🇬🇺', color: '#3498db' },
+            { name: 'MEXICO', icon: '🇲🇽', color: '#1e8449' },
+            { name: 'USA', icon: '🇺🇸', color: '#34495e' },
+            { name: 'POLAND', icon: '🇵🇱', color: '#ffffff' },
+            { name: 'COLOMBIA', icon: '🇨🇴', color: '#f1c40f' },
+            { name: 'NETHERLANDS', icon: '🇳🇱', color: '#e67e22' },
+            { name: 'VENEZUELA', icon: '🇻🇪', color: '#9b59b6' },
+            { name: 'PUERTO RICO', icon: '🇵🇷', color: '#e74c3c' }
+        ];
+
+        let tournament = {
+            userTeam: null,
+            currentOpponent: null,
+            round: 0, // 0: R16, 1: QF, 2: SF, 3: Final
+            roundsNames: ["ROUND OF 16", "QUARTER FINALS", "SEMI FINALS", "WORLD CUP FINAL"],
+            remainingTeams: [...TEAMS]
+        };
+
+        let matchState = {
+            pScore: 0,
+            cScore: 0,
+            pShots: 0,
+            cShots: 0,
+            isStriker: true,
+            busy: false,
+            isSuddenDeath: false
+        };
+
+        const stage = document.getElementById('stage');
+        const ball = document.getElementById('ball');
+        const keeper = document.getElementById('keeper');
+        const announcer = document.getElementById('announcer');
+        const goalArea = document.getElementById('goal-area');
+
+        const teamList = document.getElementById('team-list');
+        TEAMS.forEach(team => {
+            const btn = document.createElement('div');
+            btn.className = 'team-btn';
+            btn.innerHTML = `<div class="text-4xl mb-2">${team.icon}</div><div>${team.name}</div>`;
+            btn.onclick = () => selectUserTeam(team);
+            teamList.appendChild(btn);
+        });
+
+        function selectUserTeam(team) {
+            tournament.userTeam = team;
+            document.getElementById('selection-screen').style.display = 'none';
+            setupNextRound();
+        }
+
+        function setupNextRound() {
+            const others = tournament.remainingTeams.filter(t => t.name !== tournament.userTeam.name);
+            tournament.currentOpponent = others[Math.floor(Math.random() * others.length)];
+            
+            document.getElementById('versus-screen').style.display = 'flex';
+            document.getElementById('round-name').innerText = tournament.roundsNames[tournament.round];
+            document.getElementById('vs-user-icon').innerText = tournament.userTeam.icon;
+            document.getElementById('vs-user-name').innerText = tournament.userTeam.name;
+            document.getElementById('vs-opp-icon').innerText = tournament.currentOpponent.icon;
+            document.getElementById('vs-opp-name').innerText = tournament.currentOpponent.name;
+        }
+
+        function startMatch() {
+            document.getElementById('versus-screen').style.display = 'none';
+            stage.style.display = 'block';
+            
+            matchState = { pScore: 0, cScore: 0, pShots: 0, cShots: 0, isStriker: true, busy: false, isSuddenDeath: false };
+            
+            document.getElementById('player-team-label').innerText = tournament.userTeam.name;
+            document.getElementById('opp-team-label').innerText = tournament.currentOpponent.name;
+            document.getElementById('current-round-tag').innerText = tournament.roundsNames[tournament.round];
+            document.getElementById('keeper-body').setAttribute('fill', tournament.currentOpponent.color);
+            
+            updateScoreUI();
+            resetPositions();
+        }
+
+        stage.addEventListener('mousedown', (e) => {
+            if (matchState.busy) return;
+            matchState.busy = true;
+
+            const stageRect = stage.getBoundingClientRect();
+            const mouseX = e.clientX - stageRect.left;
+            const mouseY = e.clientY - stageRect.top;
+
+            const goalRect = goalArea.getBoundingClientRect();
+            const gl = goalRect.left - stageRect.left;
+            const gr = goalRect.right - stageRect.left;
+            const gt = goalRect.top - stageRect.top;
+            const gb = goalRect.bottom - stageRect.top;
+
+            let tx, ty, dx, dy;
+
+            if (matchState.isStriker) {
+                matchState.pShots++;
+                tx = mouseX; ty = mouseY;
+                dx = gl + Math.random() * (gr - gl);
+                dy = gt + Math.random() * (gb - gt);
+            } else {
+                matchState.cShots++;
+                tx = gl + Math.random() * (gr - gl);
+                ty = gt + Math.random() * (gb - gt);
+                dx = mouseX; dy = mouseY;
+            }
+
+            keeper.style.left = `${dx}px`;
+            keeper.style.bottom = `${600 - dy - 80}px`;
+
+            setTimeout(() => {
+                ball.style.left = `${tx}px`;
+                ball.style.bottom = `${600 - ty}px`;
+                ball.style.width = '30px';
+                ball.style.height = '30px';
+                ball.style.transform = 'translateX(-50%) rotate(1000deg)';
+            }, 50);
+
+            setTimeout(() => {
+                const inGoal = tx >= gl && tx <= gr && ty >= gt && ty <= gb;
+                const distance = Math.hypot(tx - dx, ty - dy);
+                const saved = distance < 110;
+
+                let msg = "MISS!";
+                announcer.style.color = "#e74c3c";
+
+                if (inGoal) {
+                    if (saved) {
+                        msg = "SAVED!";
+                        announcer.style.color = "#3498db";
+                    } else {
+                        msg = "GOAL!";
+                        announcer.style.color = "#f1c40f";
+                        if (matchState.isStriker) matchState.pScore++;
+                        else matchState.cScore++;
+                    }
+                }
+
+                announcer.innerText = msg;
+                announcer.style.opacity = 1;
+                updateScoreUI();
+
+                setTimeout(() => {
+                    announcer.style.opacity = 0;
+                    checkTurnEnd();
+                }, 1500);
+            }, 700);
+        });
+
+        function checkTurnEnd() {
+            if (!matchState.isSuddenDeath) {
+                if (matchState.pShots >= 5 && matchState.cShots >= 5) {
+                    if (matchState.pScore === matchState.cScore) {
+                        enterSuddenDeath();
+                    } else {
+                        handleMatchEnd();
+                    }
+                } else {
+                    nextTurn();
+                }
+            } 
+            else {
+                if (matchState.pShots === matchState.cShots) {
+                    if (matchState.pScore !== matchState.cScore) {
+                        handleMatchEnd();
+                    } else {
+                        nextTurn();
+                    }
+                } else {
+                    nextTurn();
+                }
+            }
+        }
+
+        function enterSuddenDeath() {
+            matchState.isSuddenDeath = true;
+            matchState.pShots = 0;
+            matchState.cShots = 0;
+            announcer.innerText = "SUDDEN DEATH!";
+            announcer.style.color = "#f1c40f";
+            announcer.style.opacity = 1;
+            
+            setTimeout(() => {
+                announcer.style.opacity = 0;
+                updateScoreUI();
+                nextTurn();
+            }, 1500);
+        }
+
+        function nextTurn() {
+            matchState.isStriker = !matchState.isStriker;
+            resetPositions();
+        }
+
+        function handleMatchEnd() {
+            stage.style.display = 'none';
+            
+            if (matchState.pScore > matchState.cScore) {
+                tournament.round++;
+                if (tournament.round > 3) {
+                    showGameOver("CHAMPIONS!", "You won the Global Cup!", "#f1c40f");
+                } else {
+                    tournament.remainingTeams = tournament.remainingTeams.slice(0, Math.max(1, tournament.remainingTeams.length / 2));
+                    setupNextRound();
+                }
+            } else {
+                showGameOver("ELIMINATED", `Lost in the ${tournament.roundsNames[tournament.round]}`, "#e74c3c");
+            }
+        }
+
+        function showGameOver(title, desc, color) {
+            const screen = document.getElementById('game-over');
+            screen.style.display = 'flex';
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-title').style.color = color;
+            document.getElementById('result-desc').innerText = desc;
+        }
+
+        function updateScoreUI() {
+            document.getElementById('p-score').innerText = matchState.pScore;
+            document.getElementById('c-score').innerText = matchState.cScore;
+            
+            const pLabel = matchState.isSuddenDeath ? "SD" : "5";
+            const cLabel = matchState.isSuddenDeath ? "SD" : "5";
+            
+            document.getElementById('p-shots-count').innerText = `${matchState.pShots}/${pLabel}`;
+            document.getElementById('c-shots-count').innerText = `${matchState.cShots}/${cLabel}`;
+            
+            if (matchState.isSuddenDeath) {
+                document.getElementById('current-round-tag').innerText = "SUDDEN DEATH";
+                document.getElementById('current-round-tag').style.background = "#e74c3c";
+                document.getElementById('current-round-tag').style.color = "white";
+            }
+        }
+
+        function resetPositions() {
+            matchState.busy = false;
+            document.getElementById('mode-indicator').innerText = matchState.isStriker ? "YOUR SHOT" : "DEFEND!";
+            document.getElementById('mode-indicator').style.background = matchState.isStriker ? "#38bdf8" : "#f43f5e";
+            document.getElementById('mode-indicator').style.color = "white";
+
+            ball.style.transition = "none";
+            keeper.style.transition = "none";
+            ball.style.left = "50%"; ball.style.bottom = "40px";
+            ball.style.width = "60px"; ball.style.height = "60px";
+            ball.style.transform = "translateX(-50%) rotate(0deg)";
+            keeper.style.left = "50%"; keeper.style.bottom = "120px";
+
+            setTimeout(() => {
+                ball.style.transition = "all 0.6s cubic-bezier(0.25, 1, 0.5, 1)";
+                keeper.style.transition = "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+            }, 50);
+        }
+    </script>
+</body>
+</html>
